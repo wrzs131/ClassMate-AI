@@ -8,9 +8,13 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from .api import auth, classroom, courseware, diagnosis, quiz, rag, settings as settings_api
+from .api import assistant, auth, classroom, courseware, diagnosis, quiz, rag, settings as settings_api
 from .config import settings
+from .mcp_server import mcp
 from .seed import init_seed
+
+# MCP Server 挂在 /mcp 上（Streamable HTTP），页面里的 AI 助手通过 MCP Client 调用这些工具
+mcp_app = mcp.http_app(path="/", transport="streamable-http")
 
 
 @asynccontextmanager
@@ -19,7 +23,8 @@ async def lifespan(app: FastAPI):
         init_seed()
     except Exception as exc:  # 示例数据失败时仍允许服务启动，便于排查
         print(f"[Startup] 初始化数据失败: {exc}", file=sys.stderr)
-    yield
+    async with mcp_app.lifespan(app):
+        yield
 
 
 app = FastAPI(
@@ -65,6 +70,7 @@ def health():
         "llm_ready": settings.llm_ready,
         "model": settings.model_name,
         "embedding_model": settings.embedding_model,
+        "mcp": "/mcp",
     }
 
 
@@ -75,3 +81,7 @@ app.include_router(classroom.router, prefix="/api")
 app.include_router(quiz.router, prefix="/api")
 app.include_router(diagnosis.router, prefix="/api")
 app.include_router(settings_api.router, prefix="/api")
+app.include_router(assistant.router, prefix="/api")
+
+# 必须在其它路由之后挂载，避免影响 /api 路径匹配
+app.mount("/mcp", mcp_app)

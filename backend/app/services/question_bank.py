@@ -129,3 +129,16 @@ def recommend_similar(kps: list[str], exclude_ids: Iterable[str], limit: int = 3
     pool = [item for item in pool if item["id"] not in excluded]
     pool.sort(key=lambda item: (item["source_type"] != "reference_paper", item["difficulty"] != "medium"))
     return pool[:limit]
+
+
+def delete_item(item_id: str) -> dict:
+    """删除题库中的一道题；已被随堂测验引用时拒绝删除。"""
+    item = get_item(item_id)
+    if not item:
+        raise ValueError("题目不存在")
+    used = db.query_one("SELECT COUNT(*) AS n FROM quiz_items WHERE exam_item_id=?", (item_id,))["n"]
+    if used:
+        raise ValueError(f"该题目已被 {used} 次随堂测验引用，不能删除")
+    db.execute("DELETE FROM chunks WHERE id=?", (f"examchunk_{item_id}",))
+    db.execute("DELETE FROM exam_items WHERE id=?", (item_id,))
+    return item

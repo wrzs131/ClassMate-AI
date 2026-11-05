@@ -24,6 +24,11 @@ langchain-chroma>=1.1.0
 chromadb>=1.5.9
 numpy>=2.1
 
+# —— MCP（AI 助手工具模式）——
+# Server 与 Client 同进程：FastMCP 挂在 FastAPI 的 /mcp 上，页面里的助手通过 MCP Client 调用
+fastmcp>=3.2.0
+openai>=2.0.0
+
 # —— 文档解析 / 课件导出 ——
 pypdf>=4.0.0
 python-docx>=1.1.0

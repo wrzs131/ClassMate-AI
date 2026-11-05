@@ -6,14 +6,16 @@ import CoursewareView from "./views/CoursewareView.vue";
 import ClassroomView from "./views/ClassroomView.vue";
 import AnalyticsView from "./views/AnalyticsView.vue";
 import KnowledgeView from "./views/KnowledgeView.vue";
+import AssistantView from "./views/AssistantView.vue";
 
-const tab = ref<"courseware" | "classroom" | "analytics" | "knowledge">("courseware");
+const tab = ref<"courseware" | "classroom" | "analytics" | "knowledge" | "assistant">("courseware");
 
 const tabs = [
   { key: "courseware", label: "备课工作台", hint: "课件生成" },
   { key: "classroom", label: "授课控制台", hint: "课堂码 / 推题" },
   { key: "analytics", label: "学情诊断", hint: "掌握度 / 错因" },
   { key: "knowledge", label: "知识库", hint: "教材 / 真题" },
+  { key: "assistant", label: "AI 助手", hint: "MCP 工具" },
 ] as const;
 
 const current = computed(() => {
@@ -24,6 +26,8 @@ const current = computed(() => {
       return AnalyticsView;
     case "knowledge":
       return KnowledgeView;
+    case "assistant":
+      return AssistantView;
     default:
       return CoursewareView;
   }

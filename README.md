@@ -1,7 +1,8 @@
 # ClassMate AI 课堂助教平台
 
-面向中小学交互式课堂的多智能体 AI 助教平台：**Vue3 + Element Plus（网页端）/ uni-app + uni-ui（小程序端）+ FastAPI + LangChain + Chroma + 硅基流动 Qwen3-VL**。
+面向中小学交互式课堂的多智能体 AI 助教平台：**Vue3 + Element Plus + uni-app + FastAPI + LangChain + Chroma + 硅基流动 Qwen3-VL + MCP工具**。
 以教师为中心，覆盖「课件辅助生成 → 课堂互动答疑 → 随堂测验批改 → 学情诊断」完整闭环。
+教师端内置 **MCP 工具助手**：用一句自然语言即可查询、新增、修改、删除课件 / 题库 / 课堂 / 学情数据。
 
 ---
 
@@ -28,6 +29,7 @@
 | 授课控制台  | 一键开课并生成 6 位课堂码；「下一步（多智能体推进）」可选同时推送随堂测验；实时课堂看板（学生数 / 提交数 / 平均得分率 / 知识点掌握 / 错因分布）；生成课堂总结；关闭课堂并用同一课件开启下一堂；历史课堂归档 |
 | 学情诊断    | 班级概览、知识点掌握条、错因分布、学生画像与最近作答明细、推荐练习 |
 | 知识库      | 知识空间管理、教材 / 试卷上传、参考试卷题导入、语义检索、题库来源与解析查看 |
+| AI 助手（MCP） | 独立标签页；开启「MCP 工具模式」后用一句话调用 16 个 MCP 工具：查询课件 / 课堂 / 题库 / 学情与班级报告，新建知识空间、导入真题、修改课件页、开课 / 关课、删除题目 / 文档 / 课件；删除需二次确认；历史对话按教师账号分组保存，可切换、可删除 |
 
 ### 学生端（小程序 / H5）
 
@@ -52,6 +54,7 @@
 - 网页端：`web/`（**Vue3 + Vite + TypeScript + Element Plus** 教师工作台，全量注册 `el-*` 组件并覆盖主题变量）
 - 小程序端：`fronted/`（**uni-app（Vue3）+ uni-ui** 学生端，`pages.json` 配置 easycom，`uni-icons / uni-tag / uni-easyinput / uni-collapse / uni-load-more`；可编译 H5 / 微信小程序）
 - 实时：教师端 SSE（`/api/classroom/{id}/stream`）+ 学生端 5 秒轮询
+- MCP：`FastMCP` 注册 16 个工具，以 Streamable HTTP 挂载在 `/mcp`；页面内助手通过 `fastmcp` Client 同进程调用，模型侧走 OpenAI function calling（同时兼容 Qwen3-VL 的 `<tool_call>` 文本协议）
 - 导出：python-pptx 生成 PPTX（讲稿写入备注页）
 
 ---
@@ -61,9 +64,11 @@
 ```
 ├── backend/                 # FastAPI 后端
 │   ├── app/
-│   │   ├── api/             # 路由：auth / rag / courseware / classroom / quiz / diagnosis / settings
+│   │   ├── api/             # 路由：auth / rag / courseware / classroom / quiz / diagnosis / settings / assistant
 │   │   ├── services/        # rag / courseware / classroom / quiz / question_bank / diagnosis / event_bus
 │   │   ├── agents.py        # 六个智能体：备课 / 教师 / 学生 / 助教 / 批改 / 诊断（含离线确定性脚本）
+│   │   ├── mcp_server.py    # MCP Server：16 个工具（查询 8 / 写入 5 / 删除 3），挂载 /mcp
+│   │   ├── agent.py         # AI 助手编排：拉取工具 → 模型选工具 → 执行 → 总结，含删除二次确认
 │   │   ├── llm.py           # 硅基流动客户端 + JSON 契约修复
 │   │   ├── db.py            # 建表 / 轻量迁移（WAL）
 │   │   ├── security.py      # PBKDF2 密码 + Bearer Token
@@ -72,8 +77,8 @@
 │   │   ├── seed.py          # 首次启动写入演示数据
 │   │   └── main.py
 │   ├── seed/                # 教材片段 + 44 道题（含 OCR 参考试卷题）
-│   ├── scripts/             # 自检与演示脚本
-│   ├── tests/               # pytest 后端测试（13 项）
+│   ├── scripts/             # 自检与演示脚本（含 smoke_mcp.py）
+│   ├── tests/               # pytest 后端测试（23 项）
 │   ├── requirements.txt
 │   ├── run.py
 │   └── .env.example         # 环境变量模板
@@ -99,6 +104,7 @@ python run.py
 ```
 
 - 服务地址：`http://127.0.0.1:8001`，接口文档：`http://127.0.0.1:8001/docs`
+- MCP 端点：`http://127.0.0.1:8001/mcp`（Streamable HTTP），教师端「AI 助手」页同进程调用；`/api/health` 会返回 `mcp` 字段
 - 首次启动会自动建表并写入演示数据：3 个知识空间、53 个检索片段、44 道题、演示账号
 - 演示账号：`teacher / demo123456`（王老师）、`student / demo123456`（小明）、`student2 / demo123456`（小红）
 - 重置数据：停止服务后删除 `backend/storage/app.db*`
@@ -111,6 +117,8 @@ npm install         # 已包含 element-plus
 npm run dev        # http://localhost:5173，/api 已代理到 8001
 npm run build      # vue-tsc --noEmit + vite build，产物在 web/dist
 ```
+
+- 顶部标签页：备课工作台 / 授课控制台 / 学情诊断 / 知识库 / **AI 助手（MCP 工具）**
 
 ### 5.3 学生端（小程序：uni-app + uni-ui）
 
@@ -144,6 +152,7 @@ npm run build:mp-weixin   # 产物在 fronted/dist/build/mp-weixin
 8. 学生端自动跳转批改报告：得分、逐题反馈、错因、掌握度、推荐练习
 9. 教师端「学情诊断」查看班级平均、知识点掌握条、错因分布、学生画像；「授课控制台」点「生成总结」
 10. 教师端「知识库」可上传教材/试卷并检索，或查看题库来源与答案解析
+11. 教师端「AI 助手」→ 保持「MCP 工具模式」，输入「列出我所有的课件」或「最近一堂课的学情怎么样」，回复下方会显示本次调用的 MCP 工具标签；说「删掉 xxx 课件」会弹出二次确认，确认后才真正执行；右侧可切换 / 删除历史对话
 
 ### **6.2 页面图片**
 
@@ -210,6 +219,28 @@ AI教师、AI学生、AI助教互动（根据当前PPT页面互动，待教师�
 #### 知识库页
 
 ![1](./fronted-UI/web/9.png)
+
+#### AI助手页（可正常对话或调用MCP工具做增删改查功能）
+
+![1](./fronted-UI/web/10.png)
+
+正常对话（没有调用MCP工具时）
+
+![1](./fronted-UI/web/10.1.0.png)
+
+调用MCP工具（查）
+
+![1](./fronted-UI/web/10.1.png)
+
+调用MCP工具（改）
+
+![1](./fronted-UI/web/10.2.png)
+
+![1](./fronted-UI/web/10.2.1.png)
+
+调用MCP工具（删）
+
+![1](./fronted-UI/web/10.3.png)
 
 #### 小程序端（学生端）
 
@@ -307,6 +338,17 @@ L0 只给追问与类比，L1/L2 逐步给步骤，L3 才给最终结论与完�
 - 学生端轮询 `GET /api/classroom/{id}/state`（5s），兼容小程序
 - 事件类型：`slide_start / teacher_speak / student_questions / assistant_answer / student_question / quiz_push / quiz_submitted / summary`
 
+### 7.6 MCP 工具助手
+
+- **工具层**：`backend/app/mcp_server.py` 用 `FastMCP` 注册 16 个工具（查询 8 / 写入 5 / 删除 3），以 Streamable HTTP 挂载在 `/mcp`，与 FastAPI 共用 lifespan
+  - 查询：知识检索、题库、课件列表 / 详情、课堂列表、课堂看板、班级报告、学生画像
+  - 写入：新建知识空间、导入真题、修改课件页、开课、关课
+  - 删除：删除题目、删除知识库文档、删除课件
+- **编排**：`backend/app/agent.py` 用 `fastmcp` Client 拉取工具 schema，交给模型 function calling，最多 6 轮「选工具 → 执行 → 结果回填 → 总结」；模型不返回原生 `tool_calls` 时（如 Qwen3-VL）自动解析 `<tool_call>{...}</tool_call>` 文本协议
+- **权限与安全**：接口仅教师可用；删除操作走 `confirm_token` + 5 分钟 TTL 二次确认；被测验 / 课堂引用的题目、文档、课件禁止删除；每次调用写入 `mcp_audit_logs` 审计表
+- **时间与数据**：工具返回前将毫秒时间戳统一格式化为北京时间，避免模型自行换算日期；提示词要求时间、人数、分数等数据必须直接引用工具结果
+- **历史对话**：`assistant_conversations` + `assistant_messages` 按教师账号隔离存储，支持会话切换与删除；离线（无 api_key）时降级为关键词直调查询工具
+
 ---
 
 ## 8. 数据来源与标注
@@ -358,8 +400,9 @@ python scripts\check_vector.py
 ```powershell
 cd backend
 conda activate langchain1.2
-python -m pytest tests -q                     # 13 项：鉴权/备课/检索/课堂/测验/学情/判分
+python -m pytest tests -q                     # 23 项：鉴权/备课/检索/课堂/测验/学情/判分/MCP
 python scripts\smoke_e2e.py                   # 离线端到端冒烟（输出 SMOKE OK）
+python scripts\smoke_mcp.py                   # MCP 冒烟：工具列举 → 建库 → 导题 → 查询 → 删除
 python scripts\live_check.py                  # 真实 uvicorn 进程联调（健康/登录/备课/开课/SSE）
 python scripts\check_llm.py                   # 真实模型 + 嵌入连通性
 python scripts\check_courseware_llm.py        # 真实模型生成整份课件

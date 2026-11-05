@@ -402,6 +402,18 @@ class CoursewareService:
         lesson = self.get_lesson(lesson_id)
         return next((s for s in lesson["slides"] if s["id"] == slide_id), {})
 
+    def delete_lesson(self, lesson_id: str) -> dict:
+        """删除课件及其幻灯片；已被课堂使用时拒绝删除。"""
+        lesson = db.query_one("SELECT * FROM lessons WHERE id=?", (lesson_id,))
+        if not lesson:
+            raise ValueError("课件不存在")
+        used = db.query_one("SELECT COUNT(*) AS n FROM classroom_sessions WHERE lesson_id=?", (lesson_id,))["n"]
+        if used:
+            raise ValueError(f"该课件已被 {used} 堂课堂使用，不能删除")
+        db.execute("DELETE FROM slides WHERE lesson_id=?", (lesson_id,))
+        db.execute("DELETE FROM lessons WHERE id=?", (lesson_id,))
+        return {"id": lesson_id, "title": lesson.get("title") or ""}
+
     def export(self, lesson_id: str, fmt: str) -> Path:
         lesson = self.get_lesson(lesson_id)
         EXPORT_DIR.mkdir(parents=True, exist_ok=True)

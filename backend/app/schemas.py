@@ -176,3 +176,16 @@ class ApiResponse(BaseModel):
     ok: bool = True
     data: Any = None
     message: str = ""
+
+
+class AssistantHistoryItem(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str
+
+
+class AssistantChatRequest(BaseModel):
+    message: str
+    tools_enabled: bool = True
+    history: list[AssistantHistoryItem] = Field(default_factory=list)
+    confirm_token: str | None = None
+    conversation_id: str | None = None

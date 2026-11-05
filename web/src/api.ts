@@ -112,4 +112,18 @@ export const api = {
   getSettings: () => request("/settings"),
   updateSettings: (payload: any) => request("/settings", { method: "PUT", body: JSON.stringify(payload) }),
   testSettings: () => request("/settings/test", { method: "POST" }),
+
+  assistantTools: () => request<{ tools: any[]; llm_ready: boolean; mode: string }>("/assistant/tools"),
+  assistantChat: (payload: {
+    message: string;
+    tools_enabled: boolean;
+    history: { role: "user" | "assistant"; content: string }[];
+    confirm_token?: string;
+    conversation_id?: string | null;
+  }) => request<any>("/assistant/chat", { method: "POST", body: JSON.stringify(payload) }),
+  assistantConversations: () => request<{ conversations: any[] }>("/assistant/conversations"),
+  assistantConversation: (id: string) =>
+    request<{ conversation: any; messages: any[] }>(`/assistant/conversations/${id}`),
+  deleteAssistantConversation: (id: string) =>
+    request<{ ok: boolean }>(`/assistant/conversations/${id}`, { method: "DELETE" }),
 };

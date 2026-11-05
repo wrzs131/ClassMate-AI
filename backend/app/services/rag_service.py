@@ -110,6 +110,21 @@ class RagService:
         )
         return self.get_space(space_id) or {}
 
+    def delete_document(self, document_id: str) -> dict:
+        """删除文档及其全部分块（向量库关闭时无需额外清理，重新索引即可重建）。"""
+        doc = db.query_one("SELECT * FROM documents WHERE id=?", (document_id,))
+        if not doc:
+            raise ValueError("文档不存在")
+        db.execute("DELETE FROM chunks WHERE document_id=?", (document_id,))
+        db.execute("DELETE FROM documents WHERE id=?", (document_id,))
+        path = doc.get("file_path") or ""
+        if path:
+            try:
+                Path(path).unlink(missing_ok=True)
+            except OSError:
+                pass
+        return {"id": document_id, "name": doc.get("name") or "", "chunk_count": doc.get("chunk_count") or 0}
+
     def list_documents(self, space_id: str) -> list[dict]:
         return db.query("SELECT * FROM documents WHERE space_id=? ORDER BY created_at DESC", (space_id,))
 

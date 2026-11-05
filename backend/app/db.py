@@ -197,11 +197,42 @@ CREATE TABLE IF NOT EXISTS mastery (
     PRIMARY KEY(student_id, kp)
 );
 
+CREATE TABLE IF NOT EXISTS mcp_audit_logs (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL DEFAULT '',
+    tool TEXT NOT NULL,
+    arguments TEXT NOT NULL DEFAULT '{}',
+    result TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'ok',
+    created_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS assistant_conversations (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    title TEXT NOT NULL DEFAULT '',
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS assistant_messages (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    conversation_id TEXT NOT NULL DEFAULT '',
+    role TEXT NOT NULL,
+    content TEXT NOT NULL DEFAULT '',
+    tool_calls TEXT NOT NULL DEFAULT '[]',
+    created_at INTEGER NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_slides_lesson ON slides(lesson_id, ord);
 CREATE INDEX IF NOT EXISTS idx_events_session_seq ON events(session_id, seq);
 CREATE INDEX IF NOT EXISTS idx_chunks_space ON chunks(space_id);
 CREATE INDEX IF NOT EXISTS idx_exam_kp ON exam_items(kp, difficulty);
 CREATE INDEX IF NOT EXISTS idx_attempts_student ON attempts(student_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_audit_user ON mcp_audit_logs(user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_assistant_user ON assistant_messages(user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_assistant_conversations_user ON assistant_conversations(user_id, updated_at);
 """
 
 
@@ -224,6 +255,10 @@ def init_db() -> None:
         conn.executescript(SCHEMA)
         # quiz_attempts.status：grading（后台批改中）/ graded（已完成）/ failed（批改失败）
         _ensure_column(conn, "quiz_attempts", "status", "TEXT NOT NULL DEFAULT 'graded'")
+        # assistant_messages.conversation_id：老库的聊天记录没有归属对话，迁移后补空串
+        _ensure_column(conn, "assistant_messages", "conversation_id", "TEXT NOT NULL DEFAULT ''")
+        # 索引必须等列补完后再建，老库才能顺利升级
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_assistant_conv ON assistant_messages(conversation_id, created_at)")
 
 
 def query(sql: str, params: Iterable[Any] = ()) -> list[dict[str, Any]]:
