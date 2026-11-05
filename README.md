@@ -1,5 +1,20 @@
+![1](./fronted-UI/111.png)
+
 # ClassMate AI 课堂助教平台
 
+<p align="center">
+  <img src="https://img.shields.io/badge/Vue-3-4FC08D?style=flat-square&logo=vuedotjs&logoColor=white" alt="Vue 3"/>
+  <img src="https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript"/>
+  <img src="https://img.shields.io/badge/Element_Plus-教师端UI-409EFF?style=flat-square" alt="Element Plus"/>
+  <img src="https://img.shields.io/badge/uni_app-学生端-2B9939?style=flat-square" alt="uni-app"/>
+  <img src="https://img.shields.io/badge/FastAPI-异步后端-05998B?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI"/>
+  <img src="https://img.shields.io/badge/LangChain-1.x-1C3C3C?style=flat-square&logo=langchain&logoColor=white" alt="LangChain"/>
+  <img src="https://img.shields.io/badge/Chroma-向量检索-FF6B35?style=flat-square" alt="Chroma"/>
+  <img src="https://img.shields.io/badge/Qwen3_VL-32B-6F42C1?style=flat-square&logo=alibabacloud&logoColor=white" alt="Qwen3-VL"/>
+  <img src="https://img.shields.io/badge/MCP-16个工具-000000?style=flat-square&logo=modelcontextprotocol&logoColor=white" alt="MCP"/>
+  <img src="https://img.shields.io/badge/Python-3.13-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.13"/>
+  <img src="https://img.shields.io/badge/SQLite-WAL-003B57?style=flat-square&logo=sqlite&logoColor=white" alt="SQLite"/>
+</p>
 面向中小学交互式课堂的多智能体 AI 助教平台：**Vue3 + Element Plus + uni-app + FastAPI + LangChain + Chroma + 硅基流动 Qwen3-VL + MCP工具**。
 以教师为中心，覆盖「课件辅助生成 → 课堂互动答疑 → 随堂测验批改 → 学情诊断」完整闭环。
 教师端内置 **MCP 工具助手**：用一句自然语言即可查询、新增、修改、删除课件 / 题库 / 课堂 / 学情数据。
