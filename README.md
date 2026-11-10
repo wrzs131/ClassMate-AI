@@ -15,8 +15,7 @@
   <img src="https://img.shields.io/badge/Python-3.13-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.13"/>
   <img src="https://img.shields.io/badge/SQLite-WAL-003B57?style=flat-square&logo=sqlite&logoColor=white" alt="SQLite"/>
 </p>
-
-[![M8ven Score](https://m8ven.ai/badge/mcp/wrzs131-classmate-ai-3fra7l?v=eb185d4ff53a47ada167b547688c57c)](https://m8ven.ai/mcp/wrzs131-classmate-ai-3fra7l?s=readme)
+[![M8ven Score](https://m8ven.ai/badge/mcp/wrzs131-classmate-ai-3fra7l?v=4eb185d4df53a47ada167b547680c57c)](https://m8ven.ai/mcp/wrzs131-classmate-ai-3fra7l?s=readme)
 
 面向中小学交互式课堂的多智能体 AI 助教平台：**Vue3 + Element Plus + uni-app + FastAPI + LangChain + Chroma + 硅基流动 Qwen3-VL + MCP工具**。
 以教师为中心，覆盖「课件辅助生成 → 课堂互动答疑 → 随堂测验批改 → 学情诊断」完整闭环。
