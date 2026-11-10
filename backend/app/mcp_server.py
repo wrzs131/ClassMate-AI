@@ -59,6 +59,27 @@ TOOL_LABELS = {
 
 CST = timezone(timedelta(hours=8))
 
+# MCP 工具注解：仅是给 MCP 客户端（host）的行为提示，不影响工具执行逻辑
+_READ_ANNOTATIONS = {
+    "readOnlyHint": True,
+    "destructiveHint": False,
+    "idempotentHint": True,
+    "openWorldHint": False,
+}
+_WRITE_ANNOTATIONS = {
+    "readOnlyHint": False,
+    "destructiveHint": False,
+    "idempotentHint": False,
+    "openWorldHint": False,
+}
+_IDEMPOTENT_WRITE_ANNOTATIONS = {**_WRITE_ANNOTATIONS, "idempotentHint": True}
+_DELETE_ANNOTATIONS = {
+    "readOnlyHint": False,
+    "destructiveHint": True,
+    "idempotentHint": False,
+    "openWorldHint": False,
+}
+
 
 def _fmt_ts(ms: float) -> str:
     """把毫秒时间戳格式化为北京时间字符串，避免模型自己换算日期时算错。"""
@@ -90,7 +111,7 @@ def _err(message: str) -> str:
 # ---------------------------------------------------------------- 查询类
 
 
-@mcp.tool
+@mcp.tool(annotations=_READ_ANNOTATIONS)
 def search_knowledge(query: str, kind: str = "", top_k: int = 5) -> str:
     """在教材库 / 真题库中做语义检索，返回命中的片段与来源。
 
@@ -118,7 +139,7 @@ def search_knowledge(query: str, kind: str = "", top_k: int = 5) -> str:
     )
 
 
-@mcp.tool
+@mcp.tool(annotations=_READ_ANNOTATIONS)
 def list_exam_items(kp: str = "", difficulty: str = "", limit: int = 20) -> str:
     """查询题库中的真题 / 教材改编题，返回 id、知识点、难度、题干、答案与来源。
 
@@ -149,7 +170,7 @@ def list_exam_items(kp: str = "", difficulty: str = "", limit: int = 20) -> str:
     )
 
 
-@mcp.tool
+@mcp.tool(annotations=_READ_ANNOTATIONS)
 def list_lessons() -> str:
     """查询所有课件，返回 id、标题、章节、创建时间。"""
     lessons = courseware_service.list_lessons()
@@ -168,7 +189,7 @@ def list_lessons() -> str:
     )
 
 
-@mcp.tool
+@mcp.tool(annotations=_READ_ANNOTATIONS)
 def get_lesson(lesson_id: str) -> str:
     """查询一份课件的详情，包含每一页的 id、标题与要点，用于定位要修改的幻灯片。
 
@@ -191,7 +212,7 @@ def get_lesson(lesson_id: str) -> str:
     )
 
 
-@mcp.tool
+@mcp.tool(annotations=_READ_ANNOTATIONS)
 def list_classrooms(teacher_id: str = "") -> str:
     """查询课堂（含进行中与历史），返回 id、课堂码、状态、课件标题。
 
@@ -214,7 +235,7 @@ def list_classrooms(teacher_id: str = "") -> str:
     )
 
 
-@mcp.tool
+@mcp.tool(annotations=_READ_ANNOTATIONS)
 def get_class_dashboard(session_id: str) -> str:
     """查看某一堂课的看板：学生数、提交人数、平均得分率、知识点掌握与错因分布。
 
@@ -227,7 +248,7 @@ def get_class_dashboard(session_id: str) -> str:
         return _err(str(exc))
 
 
-@mcp.tool
+@mcp.tool(annotations=_READ_ANNOTATIONS)
 def get_class_report(session_id: str) -> str:
     """查看某一堂课的班级学情诊断报告。
 
@@ -240,7 +261,7 @@ def get_class_report(session_id: str) -> str:
         return _err(str(exc))
 
 
-@mcp.tool
+@mcp.tool(annotations=_READ_ANNOTATIONS)
 def get_student_diagnosis(student: str) -> str:
     """查看某个学生的学情画像（薄弱知识点、错因、掌握度）。
 
@@ -262,7 +283,7 @@ def get_student_diagnosis(student: str) -> str:
 # ---------------------------------------------------------------- 写入类
 
 
-@mcp.tool
+@mcp.tool(annotations=_WRITE_ANNOTATIONS)
 def create_knowledge_space(
     name: str,
     kind: str = "textbook",
@@ -290,7 +311,7 @@ def create_knowledge_space(
     return _ok(space, f"已创建空间「{space.get('name')}」")
 
 
-@mcp.tool
+@mcp.tool(annotations=_WRITE_ANNOTATIONS)
 def import_exam_items(space_id: str, items: list[dict]) -> str:
     """向真题库批量导入题目（结构化数据）。
 
@@ -310,7 +331,7 @@ def import_exam_items(space_id: str, items: list[dict]) -> str:
     return _ok({"imported": len(ids), "ids": ids}, f"已导入 {len(ids)} 道题")
 
 
-@mcp.tool
+@mcp.tool(annotations=_IDEMPOTENT_WRITE_ANNOTATIONS)
 def update_slide(
     lesson_id: str,
     slide_id: str,
@@ -333,7 +354,7 @@ def update_slide(
     return _ok({"id": slide.get("id"), "title": slide.get("title")}, "课件页已更新")
 
 
-@mcp.tool
+@mcp.tool(annotations=_WRITE_ANNOTATIONS)
 def create_classroom(lesson_id: str, teacher_id: str = "") -> str:
     """用指定课件开一堂课，返回课堂 id 与 6 位课堂码。
 
@@ -354,7 +375,7 @@ def create_classroom(lesson_id: str, teacher_id: str = "") -> str:
     )
 
 
-@mcp.tool
+@mcp.tool(annotations=_WRITE_ANNOTATIONS)
 def close_classroom(session_id: str, teacher_id: str = "") -> str:
     """关闭一堂课，关闭后课堂码失效。
 
@@ -374,7 +395,7 @@ def close_classroom(session_id: str, teacher_id: str = "") -> str:
 # ---------------------------------------------------------------- 删除类（需二次确认）
 
 
-@mcp.tool
+@mcp.tool(annotations=_DELETE_ANNOTATIONS)
 def delete_exam_item(exam_item_id: str) -> str:
     """删除题库中的一道题。若该题已被随堂测验引用则拒绝删除。
 
@@ -388,7 +409,7 @@ def delete_exam_item(exam_item_id: str) -> str:
     return _ok({"id": item.get("id"), "stem": item.get("stem")}, "题目已删除")
 
 
-@mcp.tool
+@mcp.tool(annotations=_DELETE_ANNOTATIONS)
 def delete_document(document_id: str) -> str:
     """删除知识库中的一份文档及其全部分块。
 
@@ -402,7 +423,7 @@ def delete_document(document_id: str) -> str:
     return _ok(doc, f"已删除文档「{doc.get('name')}」")
 
 
-@mcp.tool
+@mcp.tool(annotations=_DELETE_ANNOTATIONS)
 def delete_lesson(lesson_id: str) -> str:
     """删除一份课件；若该课件已用于课堂则拒绝删除。
 
