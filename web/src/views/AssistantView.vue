@@ -15,10 +15,19 @@ type Trace = {
   destructive?: boolean;
 };
 
+type Source = {
+  chunk_id: string;
+  source: string;
+  kind: string;
+  score: number;
+  content: string;
+};
+
 type Bubble = {
   role: "user" | "assistant";
   content: string;
   traces?: Trace[];
+  sources?: Source[];
 };
 
 type Conversation = {
@@ -42,6 +51,7 @@ const history = ref<{ role: "user" | "assistant"; content: string }[]>([]);
 const examples = [
   "列出我所有的课件",
   "最近一堂课的学情怎么样",
+  "(-8)+3 为什么等于 -5？",
   "列出中等难度的有理数加法题",
   "新建一个八年级几何真题库",
   "删除名字为有理数的加减运算的课件（需要二次确认）",
@@ -170,7 +180,12 @@ async function send(text?: string) {
 }
 
 async function handleReply(res: any, content: string, snapshot: any[]) {
-  messages.value.push({ role: "assistant", content: res.answer || "（无回复）", traces: res.tool_calls || [] });
+  messages.value.push({
+    role: "assistant",
+    content: res.answer || "（无回复）",
+    traces: res.tool_calls || [],
+    sources: res.sources || [],
+  });
   history.value.push({ role: "assistant", content: res.answer || "" });
 
   if (!res.need_confirm) return;
@@ -254,6 +269,13 @@ async function handleReply(res: any, content: string, snapshot: any[]) {
                 >
                   {{ trace.label }} · {{ trace.duration_ms }}ms
                 </el-tag>
+              </div>
+              <div v-if="bubble.sources && bubble.sources.length" class="bubble-sources">
+                <span class="trace-label">依据知识库（RAG 向量召回）：</span>
+                <div v-for="(src, i) in bubble.sources" :key="src.chunk_id + i" class="source-item">
+                  <span class="source-head">[{{ i + 1 }}] {{ src.source }} · 相关度 {{ src.score.toFixed(2) }}</span>
+                  <span class="source-content">{{ src.content }}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -478,6 +500,34 @@ async function handleReply(res: any, content: string, snapshot: any[]) {
 .trace-label {
   font-size: 12px;
   color: #6b7a90;
+}
+
+.bubble-sources {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.source-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 10px;
+  border: 1px solid #e4ecf7;
+  border-radius: 8px;
+  background: #f7fafd;
+  font-size: 12px;
+  color: #40526b;
+}
+
+.source-head {
+  font-weight: 600;
+  color: #1f5fb4;
+}
+
+.source-content {
+  line-height: 1.5;
 }
 
 .typing {

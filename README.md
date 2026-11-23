@@ -246,6 +246,10 @@ AI教师、AI学生、AI助教互动（根据当前PPT页面互动，待教师�
 
 ![1](./fronted-UI/web/10.1.0.png)
 
+RAG检索
+
+![1](./fronted-UI/web/RAG.png)
+
 调用MCP工具（查）
 
 ![1](./fronted-UI/web/10.1.png)

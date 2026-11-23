@@ -18,9 +18,12 @@ from openai import AsyncOpenAI
 from . import db
 from .config import settings
 from .mcp_server import DESTRUCTIVE_TOOLS, TOOL_LABELS, WRITE_TOOLS, mcp
+from .services.rag_service import rag_service
 
 MAX_LOOPS = 6
 HISTORY_LIMIT = 8
+RAG_TOP_K = 3
+RAG_MIN_SCORE = 0.15
 CONFIRM_TTL_MS = 5 * 60 * 1000
 TITLE_LIMIT = 20
 
@@ -127,6 +130,45 @@ def _message_text(msg: Any) -> str:
 
 
 _PENDING: dict[str, dict[str, Any]] = {}
+
+
+def _retrieve_sources(message: str) -> list[dict]:
+    """对教师的问题做知识库向量检索，返回引用来源；检索失败不影响对话本身。"""
+    query = (message or "").strip()
+    if len(query) < 2:
+        return []
+    try:
+        hits = rag_service.search(query, top_k=RAG_TOP_K)
+    except Exception as exc:  # 向量库 / embedding 服务异常时静默降级
+        print(f"[RAG] 助手检索知识库失败，已跳过: {exc}")
+        return []
+    sources = []
+    for hit in hits:
+        if hit.get("score", 0) < RAG_MIN_SCORE:
+            continue
+        sources.append(
+            {
+                "chunk_id": hit.get("chunk_id", ""),
+                "source": hit.get("source") or "知识库片段",
+                "kind": hit.get("kind", ""),
+                "score": hit.get("score", 0),
+                "content": (hit.get("content") or "")[:160],
+            }
+        )
+    return sources
+
+
+def _rag_context(sources: list[dict]) -> str:
+    if not sources:
+        return ""
+    lines = [
+        f"[{i + 1}] {s['source']}（相关度 {s['score']:.2f}）：{s['content']}"
+        for i, s in enumerate(sources)
+    ]
+    return (
+        "以下是知识库向量检索召回的资料片段，回答教学相关问题时优先依据这些内容并标注 [编号]；"
+        "与资料无关或与平台数据操作相关的问题请忽略：\n" + "\n".join(lines)
+    )
 
 
 def _create_confirm(teacher_id: str, name: str, arguments: dict, conversation_id: str) -> dict:
@@ -264,6 +306,8 @@ class AssistantAgent:
         if not message:
             raise ValueError("请输入一句话再发送")
         history = _clean_history(history)
+        sources = _retrieve_sources(message)
+        rag_context = _rag_context(sources)
 
         # 删除确认是上一轮的延续：沿用原对话，且不重复记录同一条用户消息
         pending = _take_confirm(confirm_token, teacher_id) if confirm_token else None
@@ -274,13 +318,14 @@ class AssistantAgent:
             self._remember(teacher_id, conversation_id, "user", message, [])
 
         if not tools_enabled:
-            answer = await self._plain_reply(message, history)
+            answer = await self._plain_reply(message, history, rag_context)
             self._remember(teacher_id, conversation_id, "assistant", answer, [])
             return {
                 "answer": answer,
                 "tool_calls": [],
                 "need_confirm": None,
                 "mode": "chat",
+                "sources": sources,
                 "conversation_id": conversation_id,
             }
 
@@ -292,6 +337,7 @@ class AssistantAgent:
                 "tool_calls": traces,
                 "need_confirm": None,
                 "mode": "offline",
+                "sources": sources,
                 "conversation_id": conversation_id,
             }
 
@@ -310,11 +356,12 @@ class AssistantAgent:
                     "tool_calls": traces,
                     "need_confirm": None,
                     "mode": "tools",
+                    "sources": sources,
                     "conversation_id": conversation_id,
                 }
 
             messages: list[dict] = [
-                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "system", "content": SYSTEM_PROMPT + ("\n\n" + rag_context if rag_context else "")},
                 *history,
                 {"role": "user", "content": message},
             ]
@@ -366,6 +413,7 @@ class AssistantAgent:
                             "tool_calls": traces,
                             "need_confirm": confirm,
                             "mode": "tools",
+                            "sources": sources,
                             "conversation_id": conversation_id,
                         }
                     text = await self._execute(client, teacher_id, name, arguments, traces)
@@ -390,13 +438,18 @@ class AssistantAgent:
                 "tool_calls": traces,
                 "need_confirm": None,
                 "mode": "tools",
+                "sources": sources,
                 "conversation_id": conversation_id,
             }
 
-    async def _plain_reply(self, message: str, history: list[dict]) -> str:
+    async def _plain_reply(self, message: str, history: list[dict], rag_context: str = "") -> str:
         completion = await self.llm().chat.completions.create(
             model=settings.model_name,
-            messages=[{"role": "system", "content": PLAIN_PROMPT}, *history, {"role": "user", "content": message}],
+            messages=[
+                {"role": "system", "content": PLAIN_PROMPT + ("\n\n" + rag_context if rag_context else "")},
+                *history,
+                {"role": "user", "content": message},
+            ],
             temperature=settings.temperature,
             max_tokens=settings.max_tokens,
         )
