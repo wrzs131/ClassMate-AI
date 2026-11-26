@@ -1,0 +1,17 @@
+name: Record repo traffic
+
+on:
+  schedule:
+    - cron: "23 1 * * *"   # 每天 UTC 1:23（北京时间 9:23）
+  workflow_dispatch:        # 支持手动触发
+
+jobs:
+  update-stats:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write       # GITHUB_TOKEN 需要写权限：commit 统计结果 + 读 traffic 接口
+    steps:
+      - uses: jgehrcke/github-repo-stats@v1
+        with:
+          repository: wrzs131/ClassMate-AI
+          ghtoken: ${{ secrets.GITHUB_TOKEN }}   # 同仓库内置 token，无需自建 PAT
